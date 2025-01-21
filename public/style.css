@@ -1,0 +1,16 @@
+body {
+    padding-top: 20px;
+}
+
+.container {
+    max-width: 600px;
+    margin: auto;
+}
+
+h1, h2 {
+    margin-bottom: 20px;
+}
+
+form {
+    margin-bottom: 20px;
+}

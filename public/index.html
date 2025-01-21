@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetAnimal</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">MeetAnimal</h1>
+        <div class="row">
+            <div class="col-md-6 offset-md-3">
+                <form id="loginForm">
+                    <h2>Login</h2>
+                    <button type="submit" class="btn btn-primary">Login with Geolocation</button>
+                </form>
+                <hr>
+                <form id="registerForm">
+                    <h2>Register Your Animal</h2>
+                    <div class="form-group">
+                        <label for="animalName">Name</label>
+                        <input type="text" class="form-control" id="animalName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="animalPhoto">Photo URL</label>
+                        <input type="text" class="form-control" id="animalPhoto" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="animalCity">City</label>
+                        <select class="form-control" id="animalCity" required>
+                            <option value="Toulouse">Toulouse</option>
+                            <option value="Montpellier">Montpellier</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                <hr>
+                <form id="updateForm">
+                    <h2>Update Animal Details</h2>
+                    <div class="form-group">
+                        <label for="updateAnimalId">Animal ID</label>
+                        <input type="text" class="form-control" id="updateAnimalId" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="updateAnimalName">Name</label>
+                        <input type="text" class="form-control" id="updateAnimalName">
+                    </div>
+                    <div class="form-group">
+                        <label for="updateAnimalPhoto">Photo URL</label>
+                        <input type="text" class="form-control" id="updateAnimalPhoto">
+                    </div>
+                    <div class="form-group">
+                        <label for="updateAnimalCity">City</label>
+                        <select class="form-control" id="updateAnimalCity">
+                            <option value="Toulouse">Toulouse</option>
+                            <option value="Montpellier">Montpellier</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </form>
+                <hr>
+                <form id="likeForm">
+                    <h2>Like an Animal</h2>
+                    <div class="form-group">
+                        <label for="likeUserId">Your Animal ID</label>
+                        <input type="text" class="form-control" id="likeUserId" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="likeAnimalId">Animal ID to Like</label>
+                        <input type="text" class="form-control" id="likeAnimalId" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Like</button>
+                </form>
+                <hr>
+                <form id="unlikeForm">
+                    <h2>Unlike an Animal</h2>
+                    <div class="form-group">
+                        <label for="unlikeUserId">Your Animal ID</label>
+                        <input type="text" class="form-control" id="unlikeUserId" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="unlikeAnimalId">Animal ID to Unlike</label>
+                        <input type="text" class="form-control" id="unlikeAnimalId" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Unlike</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#loginForm').on('submit', function(e) {
+                e.preventDefault();
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        const data = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        $.post('/login', data, function(response) {
+                            window.location.href = response.redirectUrl;
+                        }).fail(function() {
+                            alert('Failed to find a server for your location.');
+                        });
+                    });
+                } else {
+                    alert('Geolocation is not supported by this browser.');
+                }
+            });
+
+            // Geolocation API to pre-select city
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    // Example logic to determine city based on coordinates
+                    if (lat >= 43.6 && lat <= 43.7 && lon >= 1.4 && lon <= 1.5) {
+                        $('#animalCity').val('Toulouse');
+                    } else if (lat >= 43.6 && lat <= 43.7 && lon >= 3.8 && lon <= 3.9) {
+                        $('#animalCity').val('Montpellier');
+                    }
+                });
+            }
+
+            $('#registerForm').on('submit', function(e) {
+                e.preventDefault();
+                const data = {
+                    name: $('#animalName').val(),
+                    photo: $('#animalPhoto').val(),
+                    city: $('#animalCity').val()
+                };
+                $.post('/register', data, function(response) {
+                    alert('Animal registered successfully!');
+                });
+            });
+
+            $('#updateForm').on('submit', function(e) {
+                e.preventDefault();
+                const data = {
+                    id: $('#updateAnimalId').val(),
+                    name: $('#updateAnimalName').val(),
+                    photo: $('#updateAnimalPhoto').val(),
+                    city: $('#updateAnimalCity').val()
+                };
+                $.ajax({
+                    url: `/animals/${data.id}`,
+                    type: 'PUT',
+                    data: JSON.stringify(data),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        alert('Animal details updated successfully!');
+                    }
+                });
+            });
+
+            $('#likeForm').on('submit', function(e) {
+                e.preventDefault();
+                const data = {
+                    userId: $('#likeUserId').val(),
+                    likedAnimalId: $('#likeAnimalId').val()
+                };
+                $.post(`/animals/${data.userId}/like`, data, function(response) {
+                    if (response.match) {
+                        alert('It\'s a match!');
+                    } else {
+                        alert('Animal liked successfully!');
+                    }
+                });
+            });
+
+            $('#unlikeForm').on('submit', function(e) {
+                e.preventDefault();
+                const data = {
+                    userId: $('#unlikeUserId').val(),
+                    unlikedAnimalId: $('#unlikeAnimalId').val()
+                };
+                $.post(`/animals/${data.userId}/unlike`, data, function(response) {
+                    alert('Animal unliked successfully!');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,12 +1,38 @@
 const express = require('express');
 const fs = require('fs');
 const axios = require('axios');
+const path = require('path');
 const app = express();
 const PORT = 3001;
-const CITY = 'Toulouse';
+const config = require('./config.json');
+const CITY = config.city;
 const MASTER_URL = 'http://localhost:3000';
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Ensure data directory exists
+const dataDir = path.join(__dirname, './data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir);
+}
+
+// Ensure required data files exist
+const animalsPath = path.join(dataDir, 'animals.json');
+const matchesPath = path.join(dataDir, 'matches.json');
+const likesPath = path.join(dataDir, 'likes.json');
+
+if (!fs.existsSync(animalsPath)) {
+    fs.writeFileSync(animalsPath, '[]');
+}
+
+if (!fs.existsSync(matchesPath)) {
+    fs.writeFileSync(matchesPath, '[]');
+}
+
+if (!fs.existsSync(likesPath)) {
+    fs.writeFileSync(likesPath, '{}');
+}
 
 // Données locales
 let animals = [];
@@ -15,14 +41,14 @@ let likes = {};
 
 // Chargement initial des données
 try {
-    animals = JSON.parse(fs.readFileSync('./data/animals.json'));
-    matches = JSON.parse(fs.readFileSync('./data/matches.json'));
-    likes = JSON.parse(fs.readFileSync('./data/likes.json'));
+    animals = JSON.parse(fs.readFileSync(animalsPath));
+    matches = JSON.parse(fs.readFileSync(matchesPath));
+    likes = JSON.parse(fs.readFileSync(likesPath));
 } catch (err) {
     console.log('Initialisation des fichiers de données');
-    fs.writeFileSync('./data/animals.json', '[]');
-    fs.writeFileSync('./data/matches.json', '[]');
-    fs.writeFileSync('./data/likes.json', '{}');
+    fs.writeFileSync(animalsPath, '[]');
+    fs.writeFileSync(matchesPath, '[]');
+    fs.writeFileSync(likesPath, '{}');
 }
 
 // Enregistrement auprès du serveur principal
@@ -31,7 +57,9 @@ async function registerWithMaster() {
         await axios.post(`${MASTER_URL}/register`, {
             city: CITY,
             url: `http://localhost:${PORT}`,
-            animalCount: animals.length
+            animalCount: animals.length,
+            latitude: config.latitude,
+            longitude: config.longitude
         });
         console.log('Enregistré auprès du serveur principal');
     } catch (err) {
@@ -62,8 +90,9 @@ app.post('/register', (req, res) => {
         ...req.body,
         city: CITY
     };
+    console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaa');
     animals.push(newAnimal);
-    fs.writeFileSync('./data/animals.json', JSON.stringify(animals));
+    fs.writeFileSync(animalsPath, JSON.stringify(animals));
     res.json(newAnimal);
 });
 
@@ -72,21 +101,32 @@ app.put('/animals/:id', (req, res) => {
     const animal = animals.find(a => a.id == id);
     if (animal) {
         Object.assign(animal, req.body);
-        fs.writeFileSync('./data/animals.json', JSON.stringify(animals));
+        fs.writeFileSync(animalsPath, JSON.stringify(animals));
         res.json(animal);
     } else {
         res.status(404).json({ message: 'Animal not found' });
     }
 });
 
-app.put('/animals/:id/city', (req, res) => {
+app.put('/animals/:id/city', async (req, res) => {
     const { id } = req.params;
     const { newCity } = req.body;
     const animal = animals.find(a => a.id == id);
     if (animal) {
         animal.city = newCity;
-        fs.writeFileSync('./data/animals.json', JSON.stringify(animals));
+        fs.writeFileSync(animalsPath, JSON.stringify(animals));
         res.json(animal);
+
+        // Notify master server about the city change
+        try {
+            await axios.post(`${MASTER_URL}/updateCity`, {
+                id,
+                newCity
+            });
+            console.log('City updated on master server');
+        } catch (err) {
+            console.error('Erreur de mise à jour de la ville:', err.message);
+        }
     } else {
         res.status(404).json({ message: 'Animal not found' });
     }
@@ -99,13 +139,13 @@ app.post('/animals/:id/like', (req, res) => {
         likes[id] = { liked: [], unliked: [] };
     }
     likes[id].liked.push(likedAnimalId);
-    fs.writeFileSync('./data/likes.json', JSON.stringify(likes));
+    fs.writeFileSync(likesPath, JSON.stringify(likes));
 
     // Check for match
     if (likes[likedAnimalId] && likes[likedAnimalId].liked.includes(id)) {
         const newMatch = { id: Date.now(), animals: [id, likedAnimalId], city: CITY };
         matches.push(newMatch);
-        fs.writeFileSync('./data/matches.json', JSON.stringify(matches));
+        fs.writeFileSync(matchesPath, JSON.stringify(matches));
         res.json({ match: true, newMatch });
     } else {
         res.json({ match: false });
@@ -119,7 +159,7 @@ app.post('/animals/:id/unlike', (req, res) => {
         likes[id] = { liked: [], unliked: [] };
     }
     likes[id].unliked.push(unlikedAnimalId);
-    fs.writeFileSync('./data/likes.json', JSON.stringify(likes));
+    fs.writeFileSync(likesPath, JSON.stringify(likes));
     res.json({ message: 'Animal unliked' });
 });
 
@@ -134,7 +174,7 @@ app.post('/animals', (req, res) => {
         city: CITY
     };
     animals.push(newAnimal);
-    fs.writeFileSync('./data/animals.json', JSON.stringify(animals));
+    fs.writeFileSync(animalsPath, JSON.stringify(animals));
     res.json(newAnimal);
 });
 
@@ -145,7 +185,7 @@ app.post('/matches', (req, res) => {
         city: CITY
     };
     matches.push(newMatch);
-    fs.writeFileSync('./data/matches.json', JSON.stringify(matches));
+    fs.writeFileSync(matchesPath, JSON.stringify(matches));
     res.json(newMatch);
 });
 
