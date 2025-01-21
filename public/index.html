@@ -105,14 +105,22 @@
                             latitude: position.coords.latitude,
                             longitude: position.coords.longitude
                         };
-                        $.post('/login', data, function(response) {
-                            window.location.href = response.redirectUrl;
-                        }).fail(function() {
-                            alert('Failed to find a server for your location.');
-                        });
+
+                        $.post('/login', data)
+                            .done(function(response) {
+                                if (response.redirectUrl) {
+                                    // Redirection vers le serveur approprié
+                                    window.location.href = response.redirectUrl;
+                                }
+                            })
+                            .fail(function(error) {
+                                alert('Erreur lors de la connexion: ' + error.responseJSON?.message || 'Erreur inconnue');
+                            });
+                    }, function(error) {
+                        alert('Erreur de géolocalisation: ' + error.message);
                     });
                 } else {
-                    alert('Geolocation is not supported by this browser.');
+                    alert('La géolocalisation n\'est pas supportée par votre navigateur.');
                 }
             });
 

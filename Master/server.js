@@ -168,23 +168,51 @@ app.get('/', (req, res) => {
 
 app.post('/login', (req, res) => {
     const { latitude, longitude } = req.body;
+
+    // Calcul de la distance entre deux points géographiques
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Rayon de la Terre en km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a =
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    // Trouver le serveur le plus proche
     let closestServer = null;
     let minDistance = Infinity;
 
-    servers.forEach(server => {
-        const distance = Math.sqrt(
-            Math.pow(server.latitude - latitude, 2) + Math.pow(server.longitude - longitude, 2)
-        );
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestServer = server;
-        }
-    });
+    const distances = servers.map(server => ({
+        server,
+        distance: calculateDistance(
+            latitude,
+            longitude,
+            server.latitude,
+            server.longitude
+        )
+    }));
+
+    // Trouver le serveur avec la distance minimale
+    closestServer = distances.reduce((closest, current) => {
+        return current.distance < closest.distance ? current : closest;
+    }).server;
+
+    console.log('Le serveur le plus proche est:', closestServer);
 
     if (closestServer) {
-        res.json({ redirectUrl: closestServer.url });
+        res.json({
+            redirectUrl: closestServer.url,
+            city: closestServer.city,
+            distance: Math.round(minDistance)
+        });
     } else {
-        res.status(404).json({ message: 'No server found' });
+        res.status(404).json({
+            message: 'Aucun serveur disponible dans votre région'
+        });
     }
 });
 

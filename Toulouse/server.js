@@ -90,7 +90,7 @@ app.post('/register', (req, res) => {
         ...req.body,
         city: CITY
     };
-    console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaa');
+
     animals.push(newAnimal);
     fs.writeFileSync(animalsPath, JSON.stringify(animals));
     res.json(newAnimal);
@@ -192,4 +192,37 @@ app.post('/matches', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Serveur ${CITY} démarré sur le port ${PORT}`);
     registerWithMaster();
+});
+
+// Ajoutez ces routes dans les deux serveurs
+
+// Route pour la page d'accueil
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Route pour obtenir les animaux de la ville
+app.get('/city-animals', (req, res) => {
+    res.json(animals.filter(animal => animal.city === CITY));
+});
+
+// Route pour obtenir les matches de la ville
+app.get('/city-matches', (req, res) => {
+    res.json(matches.filter(match => match.city === CITY));
+});
+
+// Route pour la synchronisation avec le master
+app.post('/sync-with-master', async (req, res) => {
+    try {
+        const response = await axios.post(`${MASTER_URL}/sync`, {
+            city: CITY,
+            data: {
+                animals: animals.filter(animal => animal.city === CITY),
+                matches: matches.filter(match => match.city === CITY)
+            }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur de synchronisation avec le master' });
+    }
 });
