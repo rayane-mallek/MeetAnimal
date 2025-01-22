@@ -68,22 +68,6 @@ try {
     fs.writeFileSync(likesPath, '{}');
 }
 
-// Synchronisation périodique avec le master
-setInterval(async () => {
-    try {
-        await axios.post(`${MASTER_URL}/sync`, {
-            city: CITY,
-            data: {
-                animals,
-                matches
-            }
-        });
-        console.log('Données synchronisées avec le master');
-    } catch (err) {
-        console.error('Erreur de synchronisation:', err.message);
-    }
-}, 60000); // Toutes les minutes
-
 app.get('/registerForm', (req, res) => res.sendFile(path.join(__dirname, '../public/register.html')));
 
 app.get('/loginForm', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));
