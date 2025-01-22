@@ -2,14 +2,23 @@ const express = require('express');
 const fs = require('fs');
 const axios = require('axios');
 const path = require('path');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
 const app = express();
 const PORT = 3001;
 const config = require('./config.json');
 const CITY = config.city;
 const MASTER_URL = 'http://localhost:3000';
 
+// Middlewares
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+app.use(session({
+    secret: 'secret-key',
+    resave: false,
+    saveUninitialized: true
+}));
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, './data');
@@ -18,9 +27,14 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // Ensure required data files exist
+const usersPath = path.join(dataDir, 'users.json');
 const animalsPath = path.join(dataDir, 'animals.json');
 const matchesPath = path.join(dataDir, 'matches.json');
 const likesPath = path.join(dataDir, 'likes.json');
+
+if (!fs.existsSync(usersPath)) {
+    fs.writeFileSync(usersPath, '[]');
+}
 
 if (!fs.existsSync(animalsPath)) {
     fs.writeFileSync(animalsPath, '[]');
@@ -35,17 +49,20 @@ if (!fs.existsSync(likesPath)) {
 }
 
 // Données locales
+let users = [];
 let animals = [];
 let matches = [];
 let likes = {};
 
 // Chargement initial des données
 try {
+    users = JSON.parse(fs.readFileSync(usersPath));
     animals = JSON.parse(fs.readFileSync(animalsPath));
     matches = JSON.parse(fs.readFileSync(matchesPath));
     likes = JSON.parse(fs.readFileSync(likesPath));
 } catch (err) {
     console.log('Initialisation des fichiers de données');
+    fs.writeFileSync(usersPath, '[]');
     fs.writeFileSync(animalsPath, '[]');
     fs.writeFileSync(matchesPath, '[]');
     fs.writeFileSync(likesPath, '{}');
@@ -83,14 +100,72 @@ setInterval(async () => {
     }
 }, 60000); // Toutes les minutes
 
+app.get('/registerForm', (req, res) => res.sendFile(path.join(__dirname, '../public/register.html')));
+
+app.get('/loginForm', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));
+
+// User Authentication Routes
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    console.log(username, password);
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required' });
+    }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = { id: Date.now(), username, password: hashedPassword };
+        users.push(newUser);
+        fs.writeFileSync(usersPath, JSON.stringify(users));
+        res.json({ message: 'User registered successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error registering user' });
+    }
+});
+
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    const user = users.find(u => u.username === username);
+    if (user && await bcrypt.compare(password, user.password)) {
+        req.session.userId = user.id;
+        res.json({ message: 'Login successful' });
+    } else {
+        res.status(401).json({ message: 'Invalid credentials' });
+    }
+});
+
+app.post('/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ message: 'Logout successful' });
+});
+
+app.get('/profile', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    const user = users.find(u => u.id === req.session.userId);
+    res.json(user);
+});
+
+app.put('/profile', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    const user = users.find(u => u.id === req.session.userId);
+    Object.assign(user, req.body);
+    fs.writeFileSync(usersPath, JSON.stringify(users));
+    res.json({ message: 'Profile updated successfully' });
+});
+
 // API Routes
-app.post('/register', (req, res) => {
+app.post('/register-animal', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
     const newAnimal = {
         id: Date.now(),
         ...req.body,
         city: CITY
     };
-
     animals.push(newAnimal);
     fs.writeFileSync(animalsPath, JSON.stringify(animals));
     res.json(newAnimal);
