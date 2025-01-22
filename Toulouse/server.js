@@ -266,25 +266,30 @@ app.post('/transfer', async (req, res) => {
     const userAnimals = animals.filter(a => a.ownerId === user.id);
 
     try {
-        // Authenticate and transfer user data
+        // Register user on the target server
         await axios.post(`${targetServerUrl}/register`, {
             username: user.username,
-            password: 'aaa123'
+            password: 'aaa123' // Use a known password for registration
         });
 
+        // Authenticate user on the target server
         const loginResponse = await axios.post(`${targetServerUrl}/login`, {
             username: user.username,
-            password: 'aaa123'
+            password: 'aaa123' // Use the same known password for login
         });
+
+        if (loginResponse.status !== 200) {
+            return res.status(401).json({ message: 'Bad credentials' });
+        }
+
+        const cookies = loginResponse.headers['set-cookie'];
 
         // Transfer animals data
         for (const animal of userAnimals) {
             await axios.post(`${targetServerUrl}/register-animal`, {
                 ...animal,
-                ownerId: user.id,
-                username: user.username,
-                password: 'aaa123'
-            });
+                ownerId: user.id
+            }, { headers: { Cookie: cookies } });
         }
 
         // Remove user and their animals from current server
@@ -296,7 +301,7 @@ app.post('/transfer', async (req, res) => {
         // Redirect user to the new server
         res.json({ message: 'User and animals transferred successfully', redirectUrl: `${targetServerUrl}/loginForm` });
     } catch (error) {
-        throw error;
+        res.status(500).json({ message: 'Error transferring data' });
     }
 });
 
