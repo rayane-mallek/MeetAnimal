@@ -55,8 +55,7 @@
                     window.location.href = result.redirectUrl;
                 }
             } catch (error) {
-                console.error('Error transferring data:', error);
-                alert('Error transferring data');
+                throw error;
             }
         });
     </script>
