@@ -82,31 +82,17 @@ async function registerWithMaster() {
     }
 }
 
-// Synchronisation périodique avec le master
-setInterval(async () => {
-    try {
-        await axios.post(`${MASTER_URL}/sync`, {
-            city: CITY,
-            data: {
-                animals,
-                matches
-            }
-        });
-        console.log('Données synchronisées avec le master');
-    } catch (err) {
-        console.error('Erreur de synchronisation:', err.message);
-    }
-}, 60000); // Toutes les minutes
-
 // User Authentication Routes
 app.get('/registerForm', (req, res) => res.sendFile(path.join(__dirname, '../public/register.html')));
 
 app.get('/loginForm', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));
 
+app.get('/registerAnimalForm', (req, res) => res.sendFile(path.join(__dirname, '../public/register_animal.html')));
+
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = { id: Date.now(), username, password: hashedPassword };
+    const newUser = { id: Date.now(), username, password: hashedPassword, animalIds: [] };
     users.push(newUser);
     fs.writeFileSync(usersPath, JSON.stringify(users));
     res.json({ message: 'User registered successfully' });
@@ -154,10 +140,14 @@ app.post('/register-animal', (req, res) => {
     const newAnimal = {
         id: Date.now(),
         ...req.body,
-        city: CITY
+        city: CITY,
+        ownerId: req.session.userId
     };
     animals.push(newAnimal);
+    const user = users.find(u => u.id === req.session.userId);
+    user.animalIds.push(newAnimal.id);
     fs.writeFileSync(animalsPath, JSON.stringify(animals));
+    fs.writeFileSync(usersPath, JSON.stringify(users));
     res.json(newAnimal);
 });
 
@@ -252,6 +242,40 @@ app.post('/matches', (req, res) => {
     matches.push(newMatch);
     fs.writeFileSync(matchesPath, JSON.stringify(matches));
     res.json(newMatch);
+});
+
+// Transfer user data to another server
+app.post('/transfer', async (req, res) => {
+    const { targetServerUrl } = req.body;
+    const user = users.find(u => u.id === req.session.userId);
+    const userAnimals = animals.filter(a => a.ownerId === req.session.userId);
+
+    try {
+        // Transfer user data
+        await axios.post(`${targetServerUrl}/register`, {
+            username: user.username,
+            password: user.password
+        }, { withCredentials: true });
+
+        // Transfer animals data
+        for (const animal of userAnimals) {
+            await axios.post(`${targetServerUrl}/register-animal`, {
+                ...animal,
+                ownerId: user.id
+            }, { withCredentials: true });
+        }
+
+        // Remove user and their animals from current server
+        users = users.filter(u => u.id !== user.id);
+        animals = animals.filter(a => a.ownerId !== user.id);
+        fs.writeFileSync(usersPath, JSON.stringify(users));
+        fs.writeFileSync(animalsPath, JSON.stringify(animals));
+
+        // Redirect user to the new server
+        res.json({ message: 'User and animals transferred successfully', redirectUrl: `${targetServerUrl}/loginForm` });
+    } catch (error) {
+        res.status(500).json({ message: 'Error transferring data' });
+    }
 });
 
 app.listen(PORT, () => {

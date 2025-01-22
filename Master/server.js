@@ -60,17 +60,7 @@ app.post('/register', (req, res) => {
 
 // Synchronisation des données
 app.post('/sync', (req, res) => {
-    const { city, data } = req.body;
-
-    // Mise à jour des données agrégées
-    aggregatedData.animals = aggregatedData.animals.filter(a => a.city !== city);
-    aggregatedData.matches = aggregatedData.matches.filter(m => m.city !== city);
-
-    aggregatedData.animals.push(...data.animals);
-    aggregatedData.matches.push(...data.matches);
-
-    fs.writeFileSync(aggregatedDataPath, JSON.stringify(aggregatedData));
-    res.json({ message: 'Données synchronisées avec succès' });
+    res.json({ message: 'Synchronization is no longer supported' });
 });
 
 // Mise à jour de la ville d'un animal
@@ -161,12 +151,7 @@ app.post('/match', (req, res) => {
     }
 });
 
-// Connexion utilisateur et redirection
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
-});
-
-app.post('/login', (req, res) => {
+app.get('/index', (req, res) => {
     const { latitude, longitude } = req.body;
 
     // Calcul de la distance entre deux points géographiques
@@ -204,11 +189,7 @@ app.post('/login', (req, res) => {
     console.log('Le serveur le plus proche est:', closestServer);
 
     if (closestServer) {
-        res.json({
-            redirectUrl: closestServer.url,
-            city: closestServer.city,
-            distance: Math.round(minDistance)
-        });
+        res.redirect(closestServer.url + '/loginForm');
     } else {
         res.status(404).json({
             message: 'Aucun serveur disponible dans votre région'

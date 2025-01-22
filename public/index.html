@@ -15,6 +15,7 @@
     <div class="container">
         <h1 class="text-center">Animals on MeetAnimal</h1>
         <div class="row" id="animalList"></div>
+        <button id="transferButton" class="btn btn-primary mt-3">Transfer to Another Server</button>
     </div>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
@@ -35,6 +36,28 @@
                     animalList.append(animalCard);
                 });
             });
+        });
+
+        document.getElementById('transferButton').addEventListener('click', async () => {
+            const currentServerUrl = window.location.origin;
+            const targetServerUrl = currentServerUrl.includes('3001') ? 'http://localhost:3002' : 'http://localhost:3001'; // Toggle between servers
+            try {
+                const response = await fetch('/transfer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targetServerUrl })
+                });
+                const result = await response.json();
+                alert(result.message);
+                if (result.redirectUrl) {
+                    window.location.href = result.redirectUrl;
+                }
+            } catch (error) {
+                console.error('Error transferring data:', error);
+                alert('Error transferring data');
+            }
         });
     </script>
 </body>
