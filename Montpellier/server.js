@@ -113,7 +113,8 @@ app.get('/profile', (req, res) => {
         return res.status(401).json({ message: 'Not authenticated' });
     }
     const user = users.find(u => u.id === req.session.userId);
-    res.json(user);
+    const userLikes = likes[user.id] || { liked: [], unliked: [] };
+    res.json({ ...user, likes: userLikes });
 });
 
 app.put('/profile', (req, res) => {
@@ -179,6 +180,35 @@ app.put('/animals/:id/city', async (req, res) => {
     } else {
         res.status(404).json({ message: 'Animal not found' });
     }
+});
+
+app.post('/animals/:id/like', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    const { id } = req.params;
+    const userId = req.session.userId;
+    if (!likes[userId]) {
+        likes[userId] = { liked: [], unliked: [] };
+    }
+    if (!likes[userId].liked.includes(id)) {
+        likes[userId].liked.push(id);
+        fs.writeFileSync(likesPath, JSON.stringify(likes));
+    }
+    res.json({ message: 'Animal liked successfully' });
+});
+
+app.post('/animals/:id/unlike', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    const { id } = req.params;
+    const userId = req.session.userId;
+    if (likes[userId] && likes[userId].liked.includes(id)) {
+        likes[userId].liked = likes[userId].liked.filter(likedId => likedId !== id);
+        fs.writeFileSync(likesPath, JSON.stringify(likes));
+    }
+    res.json({ message: 'Animal unliked successfully' });
 });
 
 app.post('/animals/:id/like', (req, res) => {
@@ -248,6 +278,7 @@ app.post('/transfer', async (req, res) => {
     }
 
     const userAnimals = animals.filter(a => a.ownerId === user.id);
+    const userLikes = likes[user.id] || { liked: [], unliked: [] };
 
     try {
         // Register user on the target server
@@ -276,11 +307,19 @@ app.post('/transfer', async (req, res) => {
             }, { headers: { Cookie: cookies } });
         }
 
+        // Transfer likes data
+        await axios.post(`${targetServerUrl}/transfer-likes`, {
+            userId: user.id,
+            likes: userLikes
+        }, { headers: { Cookie: cookies } });
+
         // Remove user and their animals from current server
         users = users.filter(u => u.id !== user.id);
         animals = animals.filter(a => a.ownerId !== user.id);
+        delete likes[user.id];
         fs.writeFileSync(usersPath, JSON.stringify(users));
         fs.writeFileSync(animalsPath, JSON.stringify(animals));
+        fs.writeFileSync(likesPath, JSON.stringify(likes));
 
         // Redirect user to the new server
         res.json({ message: 'User and animals transferred successfully', redirectUrl: `${targetServerUrl}/loginForm` });
@@ -289,11 +328,17 @@ app.post('/transfer', async (req, res) => {
     }
 });
 
+// Endpoint to receive transferred likes
+app.post('/transfer-likes', (req, res) => {
+    const { userId, likes: transferredLikes } = req.body;
+    likes[userId] = transferredLikes;
+    fs.writeFileSync(likesPath, JSON.stringify(likes));
+    res.json({ message: 'Likes transferred successfully' });
+});
+
 app.listen(PORT, () => {
     console.log(`Serveur ${CITY} démarré sur le port ${PORT}`);
 });
-
-// Ajoutez ces routes dans les deux serveurs
 
 // Route pour la page d'accueil
 app.get('/', (req, res) => {
