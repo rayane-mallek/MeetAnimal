@@ -29,7 +29,7 @@
                 $.getJSON('/animals', function(animals) {
                     const animalList = $('#animalList');
                     animals.forEach(animal => {
-                        const isLiked = user.likes && user.likes.liked.includes(animal.id);
+                        const isLiked = user.likes && user.likes.liked == animal.id;
                         const buttonClass = isLiked ? 'btn-unlike' : 'btn-success';
                         const buttonText = isLiked ? 'Unlike' : 'Like';
                         const animalCard = `
