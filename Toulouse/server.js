@@ -341,3 +341,7 @@ app.post('/sync-with-master', async (req, res) => {
         res.status(500).json({ message: 'Erreur de synchronisation avec le master' });
     }
 });
+
+app.get('/config', (req, res) => {
+    res.json(config);
+});

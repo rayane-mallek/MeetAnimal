@@ -18,12 +18,16 @@
 <body>
     <div class="container">
         <h1 class="text-center">Animals on MeetAnimal</h1>
+        <h2 class="text-center" id="serverCity"></h2>
         <div class="row" id="animalList"></div>
         <button id="transferButton" class="btn btn-primary mt-3">Transfer to Another Server</button>
     </div>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
         $(document).ready(function() {
+            $.getJSON('/config', function(config) {
+                $('#serverCity').text(`Server: ${config.city}`);
+            });
             $.getJSON('/profile', function(user) {
                 const userId = user.id;
                 $.getJSON('/animals', function(animals) {
