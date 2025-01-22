@@ -10,6 +10,8 @@ const config = require('./config.json');
 const CITY = config.city;
 const MASTER_URL = 'http://localhost:3000';
 
+// Middlewares
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(session({
@@ -66,36 +68,44 @@ try {
     fs.writeFileSync(likesPath, '{}');
 }
 
-// Enregistrement auprès du serveur principal
-async function registerWithMaster() {
+// Synchronisation périodique avec le master
+setInterval(async () => {
     try {
-        await axios.post(`${MASTER_URL}/register`, {
+        await axios.post(`${MASTER_URL}/sync`, {
             city: CITY,
-            url: `http://localhost:${PORT}`,
-            animalCount: animals.length,
-            latitude: config.latitude,
-            longitude: config.longitude
+            data: {
+                animals,
+                matches
+            }
         });
-        console.log('Enregistré auprès du serveur principal');
+        console.log('Données synchronisées avec le master');
     } catch (err) {
-        console.error('Erreur d\'enregistrement:', err.message);
+        console.error('Erreur de synchronisation:', err.message);
     }
-}
+}, 60000); // Toutes les minutes
 
-// User Authentication Routes
 app.get('/registerForm', (req, res) => res.sendFile(path.join(__dirname, '../public/register.html')));
 
 app.get('/loginForm', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));
 
 app.get('/registerAnimalForm', (req, res) => res.sendFile(path.join(__dirname, '../public/register_animal.html')));
 
+// User Authentication Routes
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = { id: Date.now(), username, password: hashedPassword, animalIds: [] };
-    users.push(newUser);
-    fs.writeFileSync(usersPath, JSON.stringify(users));
-    res.json({ message: 'User registered successfully' });
+    console.log(username, password);
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required' });
+    }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = { id: Date.now(), username, password: hashedPassword, animalIds: [] };
+        users.push(newUser);
+        fs.writeFileSync(usersPath, JSON.stringify(users));
+        res.json({ message: 'User registered successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error registering user' });
+    }
 });
 
 app.post('/login', async (req, res) => {
@@ -248,21 +258,33 @@ app.post('/matches', (req, res) => {
 app.post('/transfer', async (req, res) => {
     const { targetServerUrl } = req.body;
     const user = users.find(u => u.id === req.session.userId);
-    const userAnimals = animals.filter(a => a.ownerId === req.session.userId);
+
+    if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userAnimals = animals.filter(a => a.ownerId === user.id);
 
     try {
-        // Transfer user data
+        // Authenticate and transfer user data
+        const loginResponse = await axios.post(`${targetServerUrl}/login`, {
+            username: user.username,
+            password: user.password
+        });
+
+        const cookies = loginResponse.headers['set-cookie'];
+
         await axios.post(`${targetServerUrl}/register`, {
             username: user.username,
             password: user.password
-        }, { withCredentials: true });
+        }, { headers: { Cookie: cookies } });
 
         // Transfer animals data
         for (const animal of userAnimals) {
             await axios.post(`${targetServerUrl}/register-animal`, {
                 ...animal,
                 ownerId: user.id
-            }, { withCredentials: true });
+            }, { headers: { Cookie: cookies } });
         }
 
         // Remove user and their animals from current server
@@ -280,7 +302,6 @@ app.post('/transfer', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Serveur ${CITY} démarré sur le port ${PORT}`);
-    registerWithMaster();
 });
 
 // Ajoutez ces routes dans les deux serveurs

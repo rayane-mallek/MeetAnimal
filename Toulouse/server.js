@@ -68,22 +68,6 @@ try {
     fs.writeFileSync(likesPath, '{}');
 }
 
-// Enregistrement auprès du serveur principal
-async function registerWithMaster() {
-    try {
-        await axios.post(`${MASTER_URL}/register`, {
-            city: CITY,
-            url: `http://localhost:${PORT}`,
-            animalCount: animals.length,
-            latitude: config.latitude,
-            longitude: config.longitude
-        });
-        console.log('Enregistré auprès du serveur principal');
-    } catch (err) {
-        console.error('Erreur d\'enregistrement:', err.message);
-    }
-}
-
 // Synchronisation périodique avec le master
 setInterval(async () => {
     try {
@@ -274,21 +258,33 @@ app.post('/matches', (req, res) => {
 app.post('/transfer', async (req, res) => {
     const { targetServerUrl } = req.body;
     const user = users.find(u => u.id === req.session.userId);
-    const userAnimals = animals.filter(a => a.ownerId === req.session.userId);
+
+    if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userAnimals = animals.filter(a => a.ownerId === user.id);
 
     try {
-        // Transfer user data
+        // Authenticate and transfer user data
+        const loginResponse = await axios.post(`${targetServerUrl}/login`, {
+            username: user.username,
+            password: user.password
+        });
+
+        const cookies = loginResponse.headers['set-cookie'];
+
         await axios.post(`${targetServerUrl}/register`, {
             username: user.username,
             password: user.password
-        }, { withCredentials: true });
+        }, { headers: { Cookie: cookies } });
 
         // Transfer animals data
         for (const animal of userAnimals) {
             await axios.post(`${targetServerUrl}/register-animal`, {
                 ...animal,
                 ownerId: user.id
-            }, { withCredentials: true });
+            }, { headers: { Cookie: cookies } });
         }
 
         // Remove user and their animals from current server
@@ -306,7 +302,6 @@ app.post('/transfer', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Serveur ${CITY} démarré sur le port ${PORT}`);
-    registerWithMaster();
 });
 
 // Ajoutez ces routes dans les deux serveurs
