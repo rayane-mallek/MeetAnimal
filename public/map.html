@@ -60,21 +60,21 @@
                             </div>
                         `;
                         marker.bindPopup(popupContent);
+                        animal.marker = marker; // Associer le marqueur à l'animal
                     });
 
                     // Centrer la carte sur les animaux (si existants)
                     if (animals.length > 0) {
-                        const bounds = L.latLngBounds(animals.map(() => [43.6 + Math.random() * 0.02, 1.44 + Math.random() * 0.02]));
+                        const bounds = L.latLngBounds(animals.map(animal => animal.marker.getLatLng()));
                         map.fitBounds(bounds);
 
-                        // Choisir un animal au hasard
+                        // Choisir un animal au hasard pour le départ
                         const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-                        const startLat = 43.6 + Math.random() * 0.02;
-                        const startLng = 1.44 + Math.random() * 0.02;
+                        const startLatLng = randomAnimal.marker.getLatLng();
 
                         // Définir la destination à quelques kilomètres
-                        const endLat = startLat + 0.02;
-                        const endLng = startLng + 0.02;
+                        const endLat = startLatLng.lat + 0.02;
+                        const endLng = startLatLng.lng + 0.02;
 
                         // Ajouter un marqueur pour la destination (rouge)
                         const destinationMarker = L.marker([endLat, endLng], {
@@ -85,7 +85,7 @@
                         }).addTo(map).bindPopup('Destination');
 
                         // Ajouter un marqueur pour l'animal (violet)
-                        const animalMarker = L.marker([startLat, startLng], {
+                        const animalMarker = L.marker(startLatLng, {
                             icon: L.divIcon({
                                 className: 'custom-marker',
                                 html: '<div style="background-color: violet; width: 100%; height: 100%; border-radius: 50%;"></div>'
@@ -93,11 +93,11 @@
                         }).addTo(map).bindPopup(randomAnimal.name);
 
                         // Fonction pour animer le trajet
-                        let currentLat = startLat;
-                        let currentLng = startLng;
+                        let currentLat = startLatLng.lat;
+                        let currentLng = startLatLng.lng;
                         const steps = 20;
-                        const stepLat = (endLat - startLat) / steps;
-                        const stepLng = (endLng - startLng) / steps;
+                        const stepLat = (endLat - currentLat) / steps;
+                        const stepLng = (endLng - currentLng) / steps;
                         let step = 0;
 
                         function animateWalk() {
