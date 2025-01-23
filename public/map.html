@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carte des Animaux</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <style>
         #map {
             height: 100vh; /* La carte prend toute la hauteur de la page */
@@ -30,6 +32,7 @@
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const map = L.map('map').setView([43.6045, 1.444], 13); // Coordonnées par défaut (Toulouse)
@@ -38,6 +41,8 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
+
+            const markers = L.markerClusterGroup();
 
             // Charger les données des animaux
             fetch('/animals-map')
@@ -51,7 +56,7 @@
                         const fakeLatitude = 43.6 + Math.random() * 0.02;
                         const fakeLongitude = 1.44 + Math.random() * 0.02;
 
-                        const marker = L.marker([fakeLatitude, fakeLongitude]).addTo(map);
+                        const marker = L.marker([fakeLatitude, fakeLongitude]);
 
                         const popupContent = `
                             <div class="popup-content">
@@ -60,8 +65,11 @@
                             </div>
                         `;
                         marker.bindPopup(popupContent);
+                        markers.addLayer(marker);
                         animal.marker = marker; // Associer le marqueur à l'animal
                     });
+
+                    map.addLayer(markers);
 
                     // Centrer la carte sur les animaux (si existants)
                     if (animals.length > 0) {
