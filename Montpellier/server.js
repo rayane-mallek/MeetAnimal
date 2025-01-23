@@ -214,37 +214,6 @@ app.post('/animals/:id/unlike', (req, res) => {
     res.json({ message: 'Animal unliked successfully' });
 });
 
-app.post('/animals/:id/like', (req, res) => {
-    const { id } = req.params;
-    const { likedAnimalId } = req.body;
-    if (!likes[id]) {
-        likes[id] = { liked: [], unliked: [] };
-    }
-    likes[id].liked.push(likedAnimalId);
-    fs.writeFileSync(likesPath, JSON.stringify(likes));
-
-    // Check for match
-    if (likes[likedAnimalId] && likes[likedAnimalId].liked.includes(id)) {
-        const newMatch = { id: Date.now(), animals: [id, likedAnimalId], city: CITY };
-        matches.push(newMatch);
-        fs.writeFileSync(matchesPath, JSON.stringify(matches));
-        res.json({ match: true, newMatch });
-    } else {
-        res.json({ match: false });
-    }
-});
-
-app.post('/animals/:id/unlike', (req, res) => {
-    const { id } = req.params;
-    const { unlikedAnimalId } = req.body;
-    if (!likes[id]) {
-        likes[id] = { liked: [], unliked: [] };
-    }
-    likes[id].unliked.push(unlikedAnimalId);
-    fs.writeFileSync(likesPath, JSON.stringify(likes));
-    res.json({ message: 'Animal unliked' });
-});
-
 app.get('/animals', (req, res) => {
     res.json(animals);
 });
@@ -343,6 +312,8 @@ app.listen(PORT, () => {
     console.log(`Serveur ${CITY} démarré sur le port ${PORT}`);
 });
 
+// Ajoutez ces routes dans les deux serveurs
+
 // Route pour la page d'accueil
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -381,3 +352,55 @@ app.post('/sync-with-master', async (req, res) => {
 app.get('/config', (req, res) => {
     res.json(config);
 });
+
+// Route pour afficher la carte des animaux
+app.get('/animals-map-page', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    res.sendFile(path.join(__dirname, '../public/map.html'));
+});
+
+// Route API pour récupérer les données des animaux pour la carte
+app.get('/animals-map', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userLatitude = parseFloat(user.latitude);
+    const userLongitude = parseFloat(user.longitude);
+
+    const animalsWithDetails = animals.map(animal => {
+        const owner = users.find(u => u.id === animal.ownerId);
+        const distance = calculateDistance(userLatitude, userLongitude, parseFloat(owner.latitude), parseFloat(owner.longitude));
+        return {
+            id: animal.id,
+            name: animal.name,
+            photo: animal.photo,
+            ownerId: animal.ownerId,
+            latitude: owner.latitude,
+            longitude: owner.longitude,
+            distance
+        };
+    });
+
+    res.json(animalsWithDetails);
+});
+
+// Fonction pour calculer la distance (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const toRad = (value) => (value * Math.PI) / 180;
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance en km
+}
