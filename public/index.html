@@ -48,7 +48,10 @@
             ]).then(([currentUser, users, animals]) => {
                 const animalList = $('#animalList');
 
-                animals.forEach(animal => {
+                // Filtrer les animaux pour exclure ceux de l'utilisateur
+                const filteredAnimals = animals.filter(animal => !currentUser.animalIds.includes(animal.id));
+
+                filteredAnimals.forEach(animal => {
                     const isLiked = currentUser.likes && currentUser.likes.liked == animal.id;
                     const buttonClass = isLiked ? 'btn-unlike' : 'btn-success';
                     const buttonText = isLiked ? 'Unlike' : 'Like';
