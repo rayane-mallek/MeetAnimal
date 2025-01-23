@@ -16,7 +16,6 @@
             height: auto;
         }
         .custom-marker {
-            background-color: violet;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -92,11 +91,11 @@
                             })
                         }).addTo(map).bindPopup('Destination');
 
-                        // Ajouter un marqueur pour l'animal (violet)
+                        // Ajouter un marqueur pour l'animal (jaune)
                         const animalMarker = L.marker(startLatLng, {
                             icon: L.divIcon({
                                 className: 'custom-marker',
-                                html: '<div style="background-color: violet; width: 100%; height: 100%; border-radius: 50%;"></div>'
+                                html: '<div style="background-color: green; width: 100%; height: 100%; border-radius: 50%;"></div>' // Changer la couleur de violet à jaune
                             })
                         }).addTo(map).bindPopup(randomAnimal.name);
 
@@ -113,6 +112,7 @@
                                 currentLat += stepLat;
                                 currentLng += stepLng;
                                 animalMarker.setLatLng([currentLat, currentLng]);
+                                animalMarker.bindPopup('Promenade en cours').openPopup(); // Ajouter la popup "Promenade en cours"
                                 step++;
                                 setTimeout(animateWalk, 1000); // Avancer toutes les secondes
                             } else {
@@ -126,6 +126,7 @@
                                 currentLat -= stepLat;
                                 currentLng -= stepLng;
                                 animalMarker.setLatLng([currentLat, currentLng]);
+                                animalMarker.bindPopup('Retour à la maison').openPopup(); // Ajouter la popup "Retour à la maison"
                                 step--;
                                 setTimeout(animateReturn, 1000); // Reculer toutes les secondes
                             } else {
