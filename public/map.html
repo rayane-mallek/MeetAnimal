@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte des Animaux</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh; /* La carte prend toute la hauteur de la page */
+        }
+        .popup-content img {
+            width: 100px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const map = L.map('map').setView([43.6045, 1.444], 13); // Coordonnées par défaut (Toulouse)
+
+            // Ajouter les tuiles de la carte (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Charger les données des animaux
+            fetch('/animals-map')
+                .then(response => {
+                    if (!response.ok) throw new Error('Erreur lors du chargement des animaux');
+                    return response.json();
+                })
+                .then(animals => {
+                    animals.forEach(animal => {
+                        // Utiliser des coordonnées fictives pour Toulouse
+                        const fakeLatitude = 43.6 + Math.random() * 0.02;
+                        const fakeLongitude = 1.44 + Math.random() * 0.02;
+
+                        const marker = L.marker([fakeLatitude, fakeLongitude]).addTo(map);
+
+                        const popupContent = `
+                            <div class="popup-content">
+                                <h3>${animal.name}</h3>
+                                <img src="${animal.photo}" alt="${animal.name}" />
+                                <p>Distance : ${animal.distance.toFixed(2)} km</p>
+                            </div>
+                        `;
+                        marker.bindPopup(popupContent);
+                    });
+
+                    // Centrer la carte sur les animaux (si existants)
+                    if (animals.length > 0) {
+                        const bounds = L.latLngBounds(animals.map(() => [43.6 + Math.random() * 0.02, 1.44 + Math.random() * 0.02]));
+                        map.fitBounds(bounds);
+                    }
+                })
+                .catch(error => console.error('Erreur:', error));
+        });
+    </script>
+</body>
+</html>
