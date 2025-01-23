@@ -13,6 +13,17 @@
             width: 100px;
             height: auto;
         }
+        .custom-marker {
+            background-color: violet;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -55,6 +66,66 @@
                     if (animals.length > 0) {
                         const bounds = L.latLngBounds(animals.map(() => [43.6 + Math.random() * 0.02, 1.44 + Math.random() * 0.02]));
                         map.fitBounds(bounds);
+
+                        // Choisir un animal au hasard
+                        const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+                        const startLat = 43.6 + Math.random() * 0.02;
+                        const startLng = 1.44 + Math.random() * 0.02;
+
+                        // Définir la destination à quelques kilomètres
+                        const endLat = startLat + 0.02;
+                        const endLng = startLng + 0.02;
+
+                        // Ajouter un marqueur pour la destination (rouge)
+                        const destinationMarker = L.marker([endLat, endLng], {
+                            icon: L.divIcon({
+                                className: 'custom-marker',
+                                html: '<div style="background-color: red; width: 100%; height: 100%; border-radius: 50%;"></div>'
+                            })
+                        }).addTo(map).bindPopup('Destination');
+
+                        // Ajouter un marqueur pour l'animal (violet)
+                        const animalMarker = L.marker([startLat, startLng], {
+                            icon: L.divIcon({
+                                className: 'custom-marker',
+                                html: '<div style="background-color: violet; width: 100%; height: 100%; border-radius: 50%;"></div>'
+                            })
+                        }).addTo(map).bindPopup(randomAnimal.name);
+
+                        // Fonction pour animer le trajet
+                        let currentLat = startLat;
+                        let currentLng = startLng;
+                        const steps = 20;
+                        const stepLat = (endLat - startLat) / steps;
+                        const stepLng = (endLng - startLng) / steps;
+                        let step = 0;
+
+                        function animateWalk() {
+                            if (step < steps) {
+                                currentLat += stepLat;
+                                currentLng += stepLng;
+                                animalMarker.setLatLng([currentLat, currentLng]);
+                                step++;
+                                setTimeout(animateWalk, 1000); // Avancer toutes les secondes
+                            } else {
+                                animalMarker.bindPopup('Arrivé à destination').openPopup();
+                                setTimeout(animateReturn, 1000); // Attendre une seconde avant de commencer le retour
+                            }
+                        }
+
+                        function animateReturn() {
+                            if (step > 0) {
+                                currentLat -= stepLat;
+                                currentLng -= stepLng;
+                                animalMarker.setLatLng([currentLat, currentLng]);
+                                step--;
+                                setTimeout(animateReturn, 1000); // Reculer toutes les secondes
+                            } else {
+                                animalMarker.bindPopup('De retour au point de départ').openPopup();
+                            }
+                        }
+
+                        animateWalk();
                     }
                 })
                 .catch(error => console.error('Erreur:', error));
