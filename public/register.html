@@ -42,18 +42,26 @@
         $(document).ready(function() {
             $('#registerForm').on('submit', function(e) {
                 e.preventDefault();
-                const data = {
-                    username: $('#registerUsername').val(),
-                    password: $('#registerPassword').val()
-                };
-                $.post('/register', data)
-                    .done(function(response) {
-                        alert('Registration successful');
-                        window.location.href = '/loginForm';
-                    })
-                    .fail(function(error) {
-                        alert('Registration failed: ' + error.responseJSON?.message || 'Unknown error');
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        const data = {
+                            username: $('#registerUsername').val(),
+                            password: $('#registerPassword').val(),
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        $.post('/register', data)
+                            .done(function(response) {
+                                alert('Registration successful');
+                                window.location.href = '/loginForm';
+                            })
+                            .fail(function(error) {
+                                alert('Registration failed: ' + error.responseJSON?.message || 'Unknown error');
+                            });
                     });
+                } else {
+                    alert('Geolocation is not supported by this browser.');
+                }
             });
         });
     </script>

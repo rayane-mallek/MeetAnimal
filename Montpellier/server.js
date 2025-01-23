@@ -76,14 +76,14 @@ app.get('/registerAnimalForm', (req, res) => res.sendFile(path.join(__dirname, '
 
 // User Authentication Routes
 app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-    console.log(username, password);
+    const { username, password, latitude, longitude } = req.body;
+    console.log(username, password, latitude, longitude);
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required' });
     }
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = { id: Date.now(), username, password: hashedPassword, animalIds: [] };
+        const newUser = { id: Date.now(), username, password: hashedPassword, animalIds: [], latitude, longitude };
         users.push(newUser);
         fs.writeFileSync(usersPath, JSON.stringify(users));
         res.json({ message: 'User registered successfully' });
@@ -93,10 +93,13 @@ app.post('/register', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, latitude, longitude } = req.body;
     const user = users.find(u => u.username === username);
     if (user && await bcrypt.compare(password, user.password)) {
         req.session.userId = user.id;
+        user.latitude = latitude;
+        user.longitude = longitude;
+        fs.writeFileSync(usersPath, JSON.stringify(users));
         res.json({ message: 'Login successful' });
     } else {
         res.status(401).json({ message: 'Invalid credentials' });
@@ -343,6 +346,10 @@ app.listen(PORT, () => {
 // Route pour la page d'accueil
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+app.get('/users', (req, res) => {
+    res.json(users);
 });
 
 // Route pour obtenir les animaux de la ville

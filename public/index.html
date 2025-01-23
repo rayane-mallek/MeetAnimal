@@ -24,51 +24,90 @@
     </div>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a =
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function formatDistance(distance) {
+            if (distance < 1) {
+                return `${Math.round(distance * 1000)}m`;
+            }
+            return `${Math.round(distance)}km`;
+        }
+
         $(document).ready(function() {
             $.getJSON('/config', function(config) {
                 $('#serverCity').text(`Server: ${config.city}`);
             });
-            $.getJSON('/profile', function(user) {
-                const userId = user.id;
-                $.getJSON('/animals', function(animals) {
-                    const animalList = $('#animalList');
-                    animals.forEach(animal => {
-                        const isLiked = user.likes && user.likes.liked == animal.id;
-                        const buttonClass = isLiked ? 'btn-unlike' : 'btn-success';
-                        const buttonText = isLiked ? 'Unlike' : 'Like';
-                        const animalCard = `
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <img src="${animal.photo}" class="card-img-top" alt="${animal.name}">
-                                    <div class="card-body">
-                                        <h5 class="card-title">${animal.name}</h5>
-                                        <p class="card-text">City: ${animal.city}</p>
-                                        <button class="btn ${buttonClass} like-button" data-animal-id="${animal.id}">${buttonText}</button>
-                                    </div>
+
+            // Utiliser Promise.all pour attendre toutes les données nécessaires
+            Promise.all([
+                $.getJSON('/profile'),
+                $.getJSON('/users'),
+                $.getJSON('/animals')
+            ]).then(([currentUser, users, animals]) => {
+                const animalList = $('#animalList');
+
+                animals.forEach(animal => {
+                    const isLiked = currentUser.likes && currentUser.likes.liked == animal.id;
+                    const buttonClass = isLiked ? 'btn-unlike' : 'btn-success';
+                    const buttonText = isLiked ? 'Unlike' : 'Like';
+
+                    const owner = users.find(user => user.id === animal.ownerId);
+                    let distanceText = 'Distance inconnue';
+
+                    if (owner && currentUser.latitude && currentUser.longitude) {
+                        const distance = calculateDistance(
+                            parseFloat(currentUser.latitude),
+                            parseFloat(currentUser.longitude),
+                            parseFloat(owner.latitude),
+                            parseFloat(owner.longitude)
+                        );
+                        distanceText = formatDistance(distance);
+                    }
+
+                    const animalCard = `
+                        <div class="col-md-4">
+                            <div class="card">
+                                <img src="${animal.photo}" class="card-img-top" alt="${animal.name}">
+                                <div class="card-body">
+                                    <h5 class="card-title">${animal.name}</h5>
+                                    <p class="card-text">Distance: ${distanceText}</p>
+                                    <button class="btn ${buttonClass} like-button" data-animal-id="${animal.id}">${buttonText}</button>
                                 </div>
-                            </div>`;
-                        animalList.append(animalCard);
-                    });
+                            </div>
+                        </div>`;
+                    animalList.append(animalCard);
+                });
 
-                    $('.like-button').on('click', function() {
-                        const button = $(this);
-                        const animalId = button.data('animal-id');
-                        const isLiked = button.text() === 'Unlike';
+                $('.like-button').on('click', function() {
+                    const button = $(this);
+                    const animalId = button.data('animal-id');
+                    const isLiked = button.text() === 'Unlike';
 
-                        $.post(`/animals/${animalId}/${isLiked ? 'unlike' : 'like'}`, function(response) {
-                            alert(response.message);
-                            button.text(isLiked ? 'Like' : 'Unlike');
-                            button.toggleClass('btn-success btn-unlike');
-                        }).fail(function() {
-                            alert(`Error ${isLiked ? 'unliking' : 'liking'} animal`);
-                        });
+                    $.post(`/animals/${animalId}/${isLiked ? 'unlike' : 'like'}`, function(response) {
+                        alert(response.message);
+                        button.text(isLiked ? 'Like' : 'Unlike');
+                        button.toggleClass('btn-success btn-unlike');
+                    }).fail(function() {
+                        alert(`Error ${isLiked ? 'unliking' : 'liking'} animal`);
                     });
                 });
+            }).catch(error => {
+                console.error('Error loading data:', error);
             });
 
             document.getElementById('transferButton').addEventListener('click', async () => {
                 const currentServerUrl = window.location.origin;
-                const targetServerUrl = currentServerUrl.includes('3001') ? 'http://localhost:3002' : 'http://localhost:3001'; // Toggle between servers
+                const targetServerUrl = currentServerUrl.includes('3001') ? 'http://localhost:3002' : 'http://localhost:3001';
                 try {
                     const response = await fetch('/transfer', {
                         method: 'POST',
